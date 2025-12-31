@@ -12,7 +12,7 @@ import uuid
 
 st.set_page_config(page_title="Balatro Eats", page_icon="🃏", layout="wide")
 
-# 数据库 V5
+# 保持使用 V5 数据库
 DB_FILE = "sqlite:///local_poker_v5.sqlite"
 MAX_CARDS_PER_USER = 3
 COLOR_PALETTE = [
@@ -73,7 +73,7 @@ def get_user_color(db, room_id, user_token, nickname):
     return assigned_color
 
 # ==============================================================================
-# 2. 视觉风格 (CSS 终极 Hack 版)
+# 2. 视觉风格 (纯净版 CSS)
 # ==============================================================================
 
 def inject_balatro_css():
@@ -116,11 +116,11 @@ def inject_balatro_css():
             transition: all 0.2s ease;
             color: #1a1a1a;
             position: relative;
-            height: 180px; /* 固定高度，用于计算偏移 */
+            height: 180px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            z-index: 1; /* 保证在底层 */
+            margin-bottom: 10px; /* 给下方按钮留出空间 */
         }
         
         .card-back-pattern {
@@ -146,70 +146,33 @@ def inject_balatro_css():
             font-family: 'Press Start 2P'; margin-top: 5px;
         }
 
-        /* --- 核心 HACK: 点击覆盖层 --- */
-        
-        /* 逻辑解释：
-           1. 找到所有包含 .poker-card 的容器 (div.element-container)
-           2. 选中它紧邻的下一个容器 (+ div.element-container)
-           3. 选中该容器里的按钮 (button)
-           这正是我们渲染的 "Flip" 按钮
-        */
-        div.element-container:has(.poker-card) + div.element-container button {
-            margin-top: -190px !important; /* 强制拉回上方覆盖卡片 (180高度+10边距) */
-            height: 190px !important;      /* 撑满高度 */
-            width: 100% !important;
-            opacity: 0 !important;         /* 完全透明 */
-            z-index: 5 !important;         /* 盖在卡片上 */
-            border: none !important;
-            cursor: pointer !important;
+        /* --- 按钮样式 --- */
+        div.stButton > button {
+            width: 100%; 
+            font-family: 'Press Start 2P' !important;
+            font-size: 0.8em !important;
+            border: 2px solid #000; 
+            box-shadow: 2px 2px 0px #000;
+            margin-top: -5px;
         }
-        /* 按下时也不要有变化 */
-        div.element-container:has(.poker-card) + div.element-container button:active {
-            transform: none !important;
-            border: none !important;
+        div.stButton > button:active { 
+            transform: translate(1px, 1px); 
+            box-shadow: 1px 1px 0px #000; 
         }
 
-        /* --- 核心 HACK: 删除按钮 --- */
-        
-        /* 逻辑解释：
-           选中紧邻 "Flip" 按钮之后的那个容器里的按钮 (即 Delete 按钮)
-        */
-        div.element-container:has(.poker-card) + div.element-container + div.element-container button {
-            /* 由于 Flip 按钮已经被拉上去了，这个按钮会自动跟上去，
-               所以我们只需要做微调定位 */
-            position: absolute !important;
-            top: -190px !important;  /* 基准线调整 */
-            right: 0px !important;
-            width: 32px !important;
-            height: 32px !important;
-            border-radius: 50% !important;
+        /* 红色删除按钮 */
+        button[kind="secondary"] {
             background-color: #FF4500 !important;
             color: white !important;
-            border: 2px solid #fff !important;
-            z-index: 10 !important; /* 最高层级 */
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: 2px 2px 0 #000 !important;
+            border-color: #fff !important;
         }
-        div.element-container:has(.poker-card) + div.element-container + div.element-container button:hover {
-            background-color: red !important;
-            transform: scale(1.1) !important;
-        }
-        /* 隐藏删除按钮里文字的边距 */
-        div.element-container:has(.poker-card) + div.element-container + div.element-container button p {
-            margin: 0 !important;
-            line-height: 1 !important;
+        /* 蓝色翻面按钮 */
+        button[kind="primary"] {
+            background-color: #00BFFF !important;
+            color: #1a1a1a !important;
+            border-color: #fff !important;
         }
 
-        /* 普通按钮样式 (Start / Insert Coin) - 防止被上面的 Hack 误伤 */
-        button[kind="primary"] {
-            background-color: #FF4500 !important;
-            border: 2px solid #fff !important;
-            font-family: 'Press Start 2P' !important;
-            box-shadow: 4px 4px 0px #000;
-        }
         </style>
         <div class="crt-overlay"></div>
     """, unsafe_allow_html=True)
@@ -222,14 +185,14 @@ def draw_card_html(text, creator, color_hex, tilt_seed, is_revealed):
     border_color = color_hex
     tilt = (tilt_seed % 10) - 5
     
-    # 将 HTML 压缩为单行，确保无 Markdown 解析干扰
     if is_revealed:
-        inner = f'<div style="position:absolute; top:2px; right:5px; font-family:\'Press Start 2P\'; font-size:0.6em; color:#555;">JOKER</div><div class="card-inner-text">{text}</div>'
+        # 正面：显示 JOKER 标 + 内容 + 创建者条
+        inner = f'<div style="position:absolute; top:2px; right:5px; font-family:\'Press Start 2P\'; font-size:0.6em; color:#555;">GOOD EATS!</div><div class="card-inner-text">{text}</div>'
         tag = f'<div class="card-creator-tag" style="background-color:{border_color};">{creator}</div>'
     else:
+        # 背面：只显示问号
         inner = f'<div class="card-back-pattern">?</div>'
-        # 背面时不显示 tag
-        tag = ''
+        tag = '' 
     
     return f'<div class="poker-card" style="border-bottom: 8px solid {border_color}; transform: rotate({tilt}deg);">{inner}{tag}</div>'
 
@@ -338,7 +301,7 @@ def render_active_game_board(current_room_id, nickname, user_id, my_color):
 
             st.markdown("---")
 
-            # --- 核心：卡片网格渲染 ---
+            # --- 核心：卡片渲染 ---
             if cards:
                 room_users = db.query(RoomUser).filter(RoomUser.room_id == current_room_id).all()
                 color_map = {u.nickname: u.color_hex for u in room_users}
@@ -346,29 +309,36 @@ def render_active_game_board(current_room_id, nickname, user_id, my_color):
                 cols = st.columns(4)
                 for idx, card in enumerate(cards):
                     card_color = color_map.get(card.creator, "#ccc")
-                    is_revealed = (st.session_state.revealed_card_id == card.id)
+                    
+                    # 逻辑判定：
+                    # 1. 自己的卡片 -> 始终显示正面 (True)
+                    # 2. 别人的卡片 -> 看 revealed_card_id 是否匹配
+                    is_mine = (card.user_token == user_id)
+                    is_revealed = is_mine or (st.session_state.revealed_card_id == card.id)
                     
                     with cols[idx % 4]:
-                        # 1. 渲染卡片 (Visual) -> 对应 CSS 中的 .poker-card
+                        # 渲染 HTML
                         st.markdown(draw_card_html(card.text, card.creator, card_color, card.tilt_seed, is_revealed), unsafe_allow_html=True)
                         
-                        # 2. 渲染翻面按钮 (Interaction) -> 对应 CSS 邻近选择器 button (Flip)
-                        # 使用全宽模式，确保 CSS 能够撑满
-                        if st.button(" ", key=f"flip_{card.id}", use_container_width=True):
-                            if is_revealed:
-                                st.session_state.revealed_card_id = None
-                            else:
-                                st.session_state.revealed_card_id = card.id
-                            st.rerun()
-
-                        # 3. 渲染删除按钮 (Delete) -> 对应 CSS 邻近选择器 + 邻近选择器 button (Delete)
-                        # 只有创建者才会渲染这个按钮，所以 CSS 里的第三个选择器只会对创建者生效，这很完美
-                        if card.user_token == user_id:
-                            if st.button("✖", key=f"del_{card.id}"):
+                        # 渲染按钮
+                        if is_mine:
+                            # 自己的卡：只显示红色的“删除”按钮
+                            if st.button("删除", key=f"del_{card.id}", type="secondary", use_container_width=True):
                                 db.delete(card)
                                 db.commit()
+                                # 如果正好删的是翻开的那张（理论上不需要，因为只有别人的才需要翻），防守性重置
                                 if st.session_state.revealed_card_id == card.id:
                                     st.session_state.revealed_card_id = None
+                                st.rerun()
+                        else:
+                            # 别人的卡：显示蓝色的“翻开/盖上”按钮
+                            # 如果当前已翻开，显示 "盖上"，否则显示 "翻开"
+                            btn_text = "盖上" if is_revealed else "翻开"
+                            if st.button(btn_text, key=f"flip_{card.id}", type="primary", use_container_width=True):
+                                if is_revealed:
+                                    st.session_state.revealed_card_id = None
+                                else:
+                                    st.session_state.revealed_card_id = card.id
                                 st.rerun()
             else:
                 st.markdown("<div style='text-align:center; padding:50px; color:#666;'>TABLE EMPTY</div>", unsafe_allow_html=True)
